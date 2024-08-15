@@ -66,9 +66,7 @@ func main() {
 		fmt.Println(utils.ToJson(PR_NEEDED_ATTENTION))
 	}
 
-	service.Telegram.PostMessage("🤖 🟩 [Gitabot]: Number of PR approved " + strconv.Itoa(PR_APPROVED) + " \n 🤖 🟪 [Gitabot]: Number of PR merged " + strconv.Itoa(PR_MERGED))
-
-	service.Telegram.PostMessage("🤖 ✅ [Gitabot]: Done")
+	service.Telegram.PostMessage("🤖 🟩 [Gitabot]: Number of PR approved " + strconv.Itoa(PR_APPROVED) + " \n\n🤖 🟪 [Gitabot]: Number of PR merged " + strconv.Itoa(PR_MERGED) + "\n\n🤖 ✅ [Gitabot]: Done")
 	fmt.Println("Done!")
 }
 
