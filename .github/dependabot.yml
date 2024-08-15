@@ -5,19 +5,19 @@
 
 version: 2
 updates:
-    - package-ecosystem: github-actions
-      directory: /
-      labels:
-          - dependencies
-          - actions
-      schedule:
-          interval: weekly
-          day: sunday
-    - package-ecosystem: gomod
-      directory: /
-      labels:
-          - dependencies
-          - go
-      schedule:
-          interval: weekly
-          day: sunday
+  - package-ecosystem: github-actions
+    directory: /
+    labels:
+      - dependencies
+      - actions
+    schedule:
+      interval: weekly
+      day: sunday
+  - package-ecosystem: gomod
+    directory: /
+    labels:
+      - dependencies
+      - go
+    schedule:
+      interval: weekly
+      day: sunday
