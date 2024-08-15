@@ -18,6 +18,7 @@ var (
 	DEPENDABOT_LOGIN    = "dependabot[bot]"
 	DEPENDABOT_TYPE     = "Bot"
 	APPROVE             = "APPROVE"
+	APPROVED            = "APPROVED"
 	WAIT_GROUP          sync.WaitGroup
 	PR_APPROVED         = 0
 	PR_MERGED           = 0
@@ -35,7 +36,7 @@ func main() {
 		log.Fatalln(err)
 	}
 
-	repositories, err := initConfig()
+	config, err := initConfig()
 	if err != nil {
 		fmt.Println("Issue retriving config")
 		log.Fatalln(err)
@@ -43,14 +44,14 @@ func main() {
 	service.Telegram.PostMessage("🤖 🚧 [Gitabot]: Starting...")
 
 	client := github.NewClient(nil).WithAuthToken(os.Getenv("GITHUB_TOKEN"))
-	for _, repo := range repositories {
+	for _, repo := range config.Repos {
 		WAIT_GROUP.Add(1)
 		repo := repo
 
 		go func() {
 			defer WAIT_GROUP.Done()
 
-			err := fetchPullRequests(client, repo.Owner, repo.Repo)
+			err := fetchPullRequests(client, repo.Owner, repo.Repo, config.User)
 			if err != nil {
 				log.Fatalln(err)
 			}
@@ -71,45 +72,67 @@ func main() {
 }
 
 // Fetch pull request from Repository and approving the repo
-func fetchPullRequests(client *github.Client, owner, repo string) error {
-	requests, _, err := client.PullRequests.List(
-		context.Background(),
-		owner,
-		repo,
-		&github.PullRequestListOptions{
-			State: "open",
-			ListOptions: github.ListOptions{
-				PerPage: 100,
-			},
-		})
+func fetchPullRequests(client *github.Client, owner, repo, user string) error {
+	pageNumber := 1
+	pulls := []*github.PullRequest{}
+	for {
+		pullRequests, res, err := client.PullRequests.List(
+			context.Background(),
+			owner,
+			repo,
+			&github.PullRequestListOptions{
+				State: "open",
+				ListOptions: github.ListOptions{
+					PerPage: 2,
+					Page:    pageNumber,
+				},
+			})
 
-	if err != nil {
-		fmt.Println("Enable to fetch pull requests")
-		return err
+		if err != nil {
+			fmt.Println("Enable to fetch pull requests")
+			return err
+		}
+
+		pulls = append(
+			pulls,
+			pullRequests...,
+		)
+
+		if res.NextPage == 0 {
+			break
+		} else {
+			pageNumber += 1
+		}
 	}
 
-	// TODO: Implement logic to fetch all pages if needed
-	// fmt.Println("Last Page: ", response.LastPage)
-
-	for _, request := range requests {
+	for _, pull := range pulls {
 		// Filter none dependabot PR
-		if *request.User.Type != DEPENDABOT_TYPE || *request.User.Login != DEPENDABOT_LOGIN || *request.Draft {
+		if pull.User.GetType() != DEPENDABOT_TYPE || pull.User.GetLogin() != DEPENDABOT_LOGIN || pull.GetDraft() {
 			continue
 		}
 
-		isMergeable, err := isWorkflowSuccessfull(client, owner, repo, *request.Head.Ref)
+		isMergeable, err := isWorkflowSuccessfull(client, owner, repo, pull.Head.GetRef())
 		if err != nil {
 			fmt.Println("Enable to fetch pull request workflows")
 			return err
 		}
 
+		isApprovable, err := isPullsApprovable(client, owner, repo, user, pull.GetNumber())
+		if err != nil {
+			fmt.Println("Enable to fetch pull request reviews")
+			return err
+		}
+
+		if !isApprovable {
+			continue
+		}
+
 		if isMergeable {
-			// TODO: If already approved no need to re-approved
 			_, _, err := client.PullRequests.CreateReview(
 				context.TODO(),
 				owner,
 				repo,
-				*request.Number,
+				pull.GetNumber(),
 				&github.PullRequestReviewRequest{
 					Event: &APPROVE,
 				},
@@ -139,11 +162,39 @@ func fetchPullRequests(client *github.Client, owner, repo string) error {
 			// 	PR_MERGED += 1
 			// }
 		} else {
-			PR_NEEDED_ATTENTION = append(PR_NEEDED_ATTENTION, *request.URL)
+			PR_NEEDED_ATTENTION = append(
+				PR_NEEDED_ATTENTION,
+				pull.GetHTMLURL(),
+			)
 		}
 	}
 
 	return nil
+}
+
+// Checl if we can approve the PR
+func isPullsApprovable(client *github.Client, owner, repo, user string, pullNumber int) (bool, error) {
+	reviews, _, err := client.PullRequests.ListReviews(
+		context.Background(),
+		owner,
+		repo,
+		pullNumber,
+		&github.ListOptions{
+			PerPage: 100,
+		},
+	)
+	if err != nil {
+		return false, err
+	}
+
+	for _, review := range reviews {
+		// if user already approved the PR
+		if review.GetState() == APPROVED && review.User.GetLogin() == user {
+			return false, nil
+		}
+	}
+
+	return true, nil
 }
 
 // Parse all workflows for this branch

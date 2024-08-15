@@ -9,6 +9,11 @@ var (
 	FILEPATH = "./config.json"
 )
 
+type config struct {
+	User  string `json:"user"`
+	Repos []repo `json:"repos"`
+}
+
 type repo struct {
 	Owner string `json:"owner"`
 	Repo  string `json:"repo"`
@@ -16,14 +21,14 @@ type repo struct {
 }
 
 // Load configuration from a file
-func initConfig() ([]repo, error) {
-	var repositories []repo
+func initConfig() (*config, error) {
+	var config config
 
 	raw, err := os.ReadFile(FILEPATH)
 	if err != nil {
 		return nil, err
 	}
-	json.Unmarshal(raw, &repositories)
+	json.Unmarshal(raw, &config)
 
-	return repositories, nil
+	return &config, nil
 }
