@@ -1,0 +1,17 @@
+[
+  {
+    "owner": "Vico1993",
+    "repo": "basic-ts-repo",
+    "merge": true
+  },
+  {
+    "owner": "Vico1993",
+    "repo": "be-romantic",
+    "merge": false
+  },
+  {
+    "owner": "Vico1993",
+    "repo": "ODream",
+    "merge": false
+  }
+]
