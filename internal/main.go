@@ -73,10 +73,8 @@ func main() {
 
 // Fetch pull request from Repository and approving the repo
 func fetchPullRequests(client *github.Client, owner, repo, user string) error {
-	pageNumber := 1
-	pulls := []*github.PullRequest{}
-	for {
-		pullRequests, res, err := client.PullRequests.List(
+	pulls, err := featchAllPages[*github.PullRequest](func(pageNumber int) ([]*github.PullRequest, *github.Response, error) {
+		return client.PullRequests.List(
 			context.Background(),
 			owner,
 			repo,
@@ -87,22 +85,10 @@ func fetchPullRequests(client *github.Client, owner, repo, user string) error {
 					Page:    pageNumber,
 				},
 			})
-
-		if err != nil {
-			fmt.Println("Enable to fetch pull requests")
-			return err
-		}
-
-		pulls = append(
-			pulls,
-			pullRequests...,
-		)
-
-		if res.NextPage == 0 {
-			break
-		} else {
-			pageNumber += 1
-		}
+	})
+	if err != nil {
+		fmt.Println("Impossible to retrieve Pull Requests")
+		return err
 	}
 
 	for _, pull := range pulls {
@@ -220,4 +206,30 @@ func isWorkflowSuccessfull(client *github.Client, owner, repo, branchName string
 	}
 
 	return onError == 0, nil
+}
+
+// Parsing a Github response and going threw everything to return all data
+func featchAllPages[T any](f func(int) ([]T, *github.Response, error)) ([]T, error) {
+	d := []T{}
+	pageNumber := 1
+	for {
+		data, res, err := f(pageNumber)
+
+		if err != nil {
+			return d, err
+		}
+
+		d = append(
+			d,
+			data...,
+		)
+
+		if res.NextPage == 0 {
+			break
+		} else {
+			pageNumber += 1
+		}
+	}
+
+	return d, nil
 }
