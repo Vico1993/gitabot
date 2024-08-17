@@ -28,7 +28,10 @@ func initConfig() (*config, error) {
 	if err != nil {
 		return nil, err
 	}
-	json.Unmarshal(raw, &config)
+	err = json.Unmarshal(raw, &config)
+	if err != nil {
+		return nil, err
+	}
 
 	return &config, nil
 }

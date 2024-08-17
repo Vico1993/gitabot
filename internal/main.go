@@ -42,7 +42,7 @@ func main() {
 		fmt.Println("Issue retriving config")
 		log.Fatalln(err)
 	}
-	service.Telegram.PostMessage("🤖 🚧 [Gitabot]: Starting...")
+	_ = service.Telegram.PostMessage("🤖 🚧 [Gitabot]: Starting...")
 
 	client := github.NewClient(nil).WithAuthToken(os.Getenv("GITHUB_TOKEN"))
 	for _, repo := range config.Repos {
@@ -62,13 +62,13 @@ func main() {
 	WAIT_GROUP.Wait()
 
 	if len(PR_NEEDED_ATTENTION) > 0 {
-		service.Telegram.PostMessage("🤖 🟥 [Gitabot]: Number of PR that need attention " + strconv.Itoa(len(PR_NEEDED_ATTENTION)))
+		_ = service.Telegram.PostMessage("🤖 🟥 [Gitabot]: Number of PR that need attention " + strconv.Itoa(len(PR_NEEDED_ATTENTION)))
 
 		fmt.Println("Few pull requests need your attention")
 		fmt.Println(utils.ToJson(PR_NEEDED_ATTENTION))
 	}
 
-	service.Telegram.PostMessage("🤖 🟩 [Gitabot]: Number of PR approved " + strconv.Itoa(PR_APPROVED) + " \n\n🤖 🟪 [Gitabot]: Number of PR merged " + strconv.Itoa(PR_MERGED) + "\n\n🤖 ✅ [Gitabot]: Done")
+	_ = service.Telegram.PostMessage("🤖 🟩 [Gitabot]: Number of PR approved " + strconv.Itoa(PR_APPROVED) + " \n\n🤖 🟪 [Gitabot]: Number of PR merged " + strconv.Itoa(PR_MERGED) + "\n\n🤖 ✅ [Gitabot]: Done")
 	fmt.Println("Done!")
 }
 
