@@ -19,6 +19,7 @@ var (
 	DEPENDABOT_TYPE     = "Bot"
 	APPROVE             = "APPROVE"
 	APPROVED            = "APPROVED"
+	FILTER_LATEST       = "latest"
 	WAIT_GROUP          sync.WaitGroup
 	PR_APPROVED         = 0
 	PR_MERGED           = 0
@@ -184,31 +185,30 @@ func isPullsApprovable(client *github.Client, owner, repo, user string, pullNumb
 }
 
 // Parse all workflows for this branch
-// TODO: Make sure to take laste
 func isWorkflowSuccessfull(client *github.Client, owner, repo, branchName string) (bool, error) {
-	workflows, _, err := client.Actions.ListRepositoryWorkflowRuns(
-		context.TODO(),
+	checks, _, err := client.Checks.ListCheckRunsForRef(
+		context.Background(),
 		owner,
 		repo,
-		&github.ListWorkflowRunsOptions{
-			Branch: branchName,
+		branchName,
+		&github.ListCheckRunsOptions{
+			Filter: &FILTER_LATEST,
 		},
 	)
 	if err != nil {
 		return false, err
 	}
 
-	onError := 0
-	for _, workflow := range workflows.WorkflowRuns {
-		if *workflow.Conclusion != "success" {
-			onError += 1
+	for _, run := range checks.CheckRuns {
+		if run.GetConclusion() != "success" {
+			return false, nil
 		}
 	}
 
-	return onError == 0, nil
+	return true, nil
 }
 
-// Parsing a Github response and going threw everything to return all data
+// Parsing a Github response and going threw everything to return all
 func featchAllPages[T any](f func(int) ([]T, *github.Response, error)) ([]T, error) {
 	d := []T{}
 	pageNumber := 1
