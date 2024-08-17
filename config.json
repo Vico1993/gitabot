@@ -4,17 +4,26 @@
     {
       "owner": "Vico1993",
       "repo": "basic-ts-repo",
-      "merge": true
+      "merge": true,
+      "pulls": []
     },
     {
       "owner": "Vico1993",
       "repo": "be-romantic",
-      "merge": false
+      "merge": false,
+      "pulls": []
     },
     {
       "owner": "Vico1993",
       "repo": "ODream",
-      "merge": false
+      "merge": false,
+      "pulls": []
+    },
+    {
+      "owner": "Vico1993",
+      "repo": "personal-website",
+      "merge": true,
+      "pulls": []
     }
   ]
 }

@@ -24,6 +24,7 @@ var (
 	PR_APPROVED         = 0
 	PR_MERGED           = 0
 	PR_NEEDED_ATTENTION = []string{}
+	PR_MERGED_ERROR     = 0
 )
 
 func main() {
@@ -45,17 +46,27 @@ func main() {
 	_ = service.Telegram.PostMessage("🤖 🚧 [Gitabot]: Starting...")
 
 	client := github.NewClient(nil).WithAuthToken(os.Getenv("GITHUB_TOKEN"))
-	for _, repo := range config.Repos {
+	for _, repository := range config.Repos {
 		WAIT_GROUP.Add(1)
-		repo := repo
+		repository := repository
 
 		go func() {
 			defer WAIT_GROUP.Done()
 
-			err := fetchPullRequests(client, repo.Owner, repo.Repo, config.User)
+			err := fetchPullRequestsApprovals(client, &repository, config.User)
 			if err != nil {
 				log.Fatalln(err)
 			}
+
+			if repository.Merge && len(repository.PullsToMerge) >= 1 {
+				err := fetchPullRequestsMerged(client, &repository, config.User)
+				if err != nil {
+					log.Fatalln(err)
+				}
+			}
+
+			fmt.Println("Done: ", repository.Owner, repository.Repo)
+			fmt.Println(utils.ToJson(repository))
 		}()
 	}
 
@@ -69,16 +80,22 @@ func main() {
 	}
 
 	_ = service.Telegram.PostMessage("🤖 🟩 [Gitabot]: Number of PR approved " + strconv.Itoa(PR_APPROVED) + " \n\n🤖 🟪 [Gitabot]: Number of PR merged " + strconv.Itoa(PR_MERGED) + "\n\n🤖 ✅ [Gitabot]: Done")
+
+	if PR_MERGED > 0 {
+		fmt.Println("Pull Requests merged: ", PR_MERGED)
+		fmt.Println("Pull Requests merged - Error: ", PR_MERGED_ERROR)
+	}
+
 	fmt.Println("Done!")
 }
 
 // Fetch pull request from Repository and approving the repo
-func fetchPullRequests(client *github.Client, owner, repo, user string) error {
-	pulls, err := featchAllPages[*github.PullRequest](func(pageNumber int) ([]*github.PullRequest, *github.Response, error) {
+func fetchPullRequestsApprovals(client *github.Client, repository *repo, user string) error {
+	pulls, err := featchAllPages(func(pageNumber int) ([]*github.PullRequest, *github.Response, error) {
 		return client.PullRequests.List(
 			context.Background(),
-			owner,
-			repo,
+			repository.Owner,
+			repository.Repo,
 			&github.PullRequestListOptions{
 				State: "open",
 				ListOptions: github.ListOptions{
@@ -92,34 +109,58 @@ func fetchPullRequests(client *github.Client, owner, repo, user string) error {
 		return err
 	}
 
-	for _, pull := range pulls {
+	for _, p := range pulls {
 		// Filter none dependabot PR
-		if pull.User.GetType() != DEPENDABOT_TYPE || pull.User.GetLogin() != DEPENDABOT_LOGIN || pull.GetDraft() {
+		if p.User.GetType() != DEPENDABOT_TYPE || p.User.GetLogin() != DEPENDABOT_LOGIN || p.GetDraft() {
 			continue
 		}
 
-		isMergeable, err := isWorkflowSuccessfull(client, owner, repo, pull.Head.GetRef())
+		isMergeable, err := isWorkflowSuccessfull(
+			client,
+			repository.Owner,
+			repository.Repo,
+			p.Head.GetRef(),
+		)
 		if err != nil {
 			fmt.Println("Enable to fetch pull request workflows")
 			return err
 		}
 
-		isApprovable, err := isPullsApprovable(client, owner, repo, user, pull.GetNumber())
+		pull, _, err := client.PullRequests.Get(
+			context.Background(),
+			repository.Owner,
+			repository.Repo,
+			p.GetNumber(),
+		)
+		if err != nil {
+			fmt.Println("Enable to fetch pull request")
+			return err
+		}
+
+		isApprovable, err := isPullsApprovable(
+			client,
+			repository.Owner,
+			repository.Repo,
+			user,
+			pull.GetNumber(),
+			pull.Base.GetSHA(),
+		)
 		if err != nil {
 			fmt.Println("Enable to fetch pull request reviews")
 			return err
 		}
-
 		if !isApprovable {
 			continue
 		}
 
-		if isMergeable {
+		// To be mergeable, all checks need to be good
+		// And no conflict need to be detected
+		if isMergeable && pull.GetMergeable() {
 			_, _, err := client.PullRequests.CreateReview(
 				context.TODO(),
-				owner,
-				repo,
-				pull.GetNumber(),
+				repository.Owner,
+				repository.Repo,
+				p.GetNumber(),
 				&github.PullRequestReviewRequest{
 					Event: &APPROVE,
 				},
@@ -131,27 +172,14 @@ func fetchPullRequests(client *github.Client, owner, repo, user string) error {
 
 			PR_APPROVED += 1
 
-			// TODO: Defined strategy for merge ( conflict / Need to be updated etc.. )
-			// if shouldMerge {
-			// 	_, _, err := client.PullRequests.Merge(
-			// 		context.Background(),
-			// 		owner,
-			// 		repo,
-			// 		*request.Number,
-			// 		"chore(deps): Update dep from Dependabot",
-			// 		&github.PullRequestOptions{},
-			// 	)
-			// 	if err != nil {
-			// 		fmt.Println("Enable to Merge pull request")
-			// 		return err
-			// 	}
-
-			// 	PR_MERGED += 1
-			// }
+			// Add to array
+			if repository.Merge {
+				repository.AddPull(p.GetNumber())
+			}
 		} else {
 			PR_NEEDED_ATTENTION = append(
 				PR_NEEDED_ATTENTION,
-				pull.GetHTMLURL(),
+				p.GetHTMLURL(),
 			)
 		}
 	}
@@ -160,7 +188,7 @@ func fetchPullRequests(client *github.Client, owner, repo, user string) error {
 }
 
 // Checl if we can approve the PR
-func isPullsApprovable(client *github.Client, owner, repo, user string, pullNumber int) (bool, error) {
+func isPullsApprovable(client *github.Client, owner, repo, user string, pullNumber int, commit string) (bool, error) {
 	reviews, _, err := client.PullRequests.ListReviews(
 		context.Background(),
 		owner,
@@ -175,8 +203,8 @@ func isPullsApprovable(client *github.Client, owner, repo, user string, pullNumb
 	}
 
 	for _, review := range reviews {
-		// if user already approved the PR
-		if review.GetState() == APPROVED && review.User.GetLogin() == user {
+		// if user already approved the PR for this commit
+		if review.GetCommitID() == commit && review.GetState() == APPROVED && review.User.GetLogin() == user {
 			return false, nil
 		}
 	}
@@ -232,4 +260,50 @@ func featchAllPages[T any](f func(int) ([]T, *github.Response, error)) ([]T, err
 	}
 
 	return d, nil
+}
+
+// Will handle logic for merging Pull requests
+func fetchPullRequestsMerged(client *github.Client, repository *repo, user string) error {
+	prNumberToMerge := repository.PullsToMerge[0]
+
+	_, _, err := client.PullRequests.Merge(
+		context.Background(),
+		repository.Owner,
+		repository.Repo,
+		prNumberToMerge,
+		"chore(deps): Update dep from Dependabot",
+		&github.PullRequestOptions{},
+	)
+	if err != nil {
+		PR_MERGED_ERROR += 1
+		fmt.Println("Enable to Merge pull request:", repository.Owner, repository.Repo, prNumberToMerge)
+		return err
+	}
+
+	// Remove pr merged
+	repository.RemovePull(0)
+
+	// Request Rebase
+	var body = "@dependabot rebase"
+	for _, prNumber := range repository.PullsToMerge {
+		_, _, err := client.Issues.CreateComment(
+			context.Background(),
+			repository.Owner,
+			repository.Repo,
+			prNumber,
+			&github.IssueComment{
+				Body: &body,
+				User: &github.User{
+					Login: &user,
+				},
+			},
+		)
+
+		if err != nil {
+			fmt.Println("Enable to Comment pull request:", repository.Owner, repository.Repo, prNumber)
+			return err
+		}
+	}
+
+	return nil
 }
