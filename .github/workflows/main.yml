@@ -38,7 +38,8 @@ jobs:
 
   test:
     name: Test
-    needs: build
+    needs:
+      - build
     runs-on: ${{ matrix.os }}
     strategy:
       # Fail fast is disabled because there are Go version specific features and tests
@@ -62,28 +63,13 @@ jobs:
           persist-credentials: false
           fetch-depth: 0
 
+      - name: Vendor
+        run: |
+          go mod vendor
+
       - name: Test
         run: |
-          go test -race -covermode atomic -coverprofile=profile.cov ./...
-
-      - name: Install goveralls
-        run: go install github.com/mattn/goveralls@latest
-
-      - name: Send coverage
-        uses: shogo82148/actions-goveralls@v1
-        with:
-          path-to-profile: profile.cov
-          flag-name: Go-${{ matrix.os }}
-          parallel: true
-
-  # notifies that all test jobs are finished.
-  finish:
-    needs: test
-    runs-on: ubuntu-latest
-    steps:
-      - uses: shogo82148/actions-goveralls@v1
-        with:
-          parallel-finished: true
+          make test
 
   release:
     name: Create Release

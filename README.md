@@ -1,6 +1,8 @@
 # Gitabot
 
-It's a program made to fetch dependabot PR. Check if all check passed and approved or merged if selected
+This script is designed to parse a list of GitHub repositories and identify open pull requests created by Dependabot. Its primary function is to automatically approve these PRs if all associated checks have passed. For certain repositories, the script can even merge these Dependabot pull requests autonomously.
+
+While automating the approval and merging of PRs might seem risky, I'm a careful developer who trusts my CI pipeline. If the CI passes all checks, there's no reason for me to manually handle these PRs when a script can do it efficiently for me.
 
 ## Table of Contents
 
