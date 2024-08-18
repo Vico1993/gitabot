@@ -6,6 +6,8 @@ on:
 
 env:
   GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+  RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+  RAILWAY_SERVICE: GitaBot
 
 jobs:
   goreleaser:
@@ -26,3 +28,17 @@ jobs:
           version: latest
           args: release --clean
           workdir: ./internal
+
+  railway:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Deploy to railway
+        uses: bervProject/railway-deploy@0.1.2-beta
+        with:
+          service: ${{ env.RAILWAY_SERVICE }}
+          detach: true
