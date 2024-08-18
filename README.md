@@ -6,53 +6,45 @@ While automating the approval and merging of PRs might seem risky, I'm a careful
 
 ## Table of Contents
 
-- [Getting Started](#getting-started)
-- [Usage](#usage)
+- [Setup Instructions](#setup-instructions)
 - [Contributing](#contributing)
-- [Usage](#usage)
 
-## Getting Started
+## Setup Instructions
 
-To get started with gitabot, clone the repository to your local machine:
+Follow the steps below to set up and run the Automated Dependabot PR Approver:
 
-```sh
-git clone https://github.com/Vico1993/gitabot.git
-cd gitabot
-```
+### 1. Update `data.go`
 
-## Prerequisites
+- Open the `data.go` file and add your list of GitHub repositories. This file contains the repositories that the script will parse to identify Dependabot pull requests.
 
-Make sure you have the following tools installed on your machine:
+### 2. Configure Environment Variables
 
-- Go (at least version 1.21)
-- Setup an .env file
+- Create or update a `.env` file in the project root with the following variables:
 
-```bash
-# We need a Github token which is allow to read / write pull request
-GITHUB_TOKEN=
+  - **GitHub Credentials:**
 
-# Bot can send some Telegram notification
-# If wanted use
-TELEGRAM_DISABLE=0
-TELEGRAM_CHAT_ID=
-TELEGRAM_BOT_TOKEN=
-TELEGRAM_THREAT_ID=
-```
+    - `GITHUB_TOKEN`: Your GitHub API token.
+    - `GITHUB_USERNAME`: Your GitHub username.
 
-## Installing
+  - **Telegram Notifications:**
 
-To install Gitabot, run the following command:
+    - `TELEGRAM_CHAT_ID`: The chat ID where notifications will be sent.
+    - `TELEGRAM_BOT_TOKEN`: The token for your Telegram bot.
+
+### 3. Install Dependencies
+
+- Run the following command to ensure all dependencies are installed:
 
 ```sh
-make ensure_deps
+  make ensure_deps
 ```
 
-## Usage
+### 4. Build and Run the Script
 
-To use Gitabot, run the following command:
+- Build the project and run the bot with the following commands:
 
 ```sh
-make build && ./bin/bot
+  make build && ./bin/bot
 ```
 
 ## Contributing

@@ -32,30 +32,28 @@ func main() {
 		log.Fatalln(err)
 	}
 
-	config, err := initConfig()
-	if err != nil {
-		fmt.Println("Issue retriving config")
-		log.Fatalln(err)
-	}
 	_ = service.Telegram.PostMessage("🤖 🚧 [Gitabot]: Starting...")
 
 	token := os.Getenv("GITHUB_TOKEN")
-	if token == "" {
-		fmt.Println("GITHUB_TOKEN not found, update your .env")
+	username := os.Getenv("GITHUB_USERNAME")
+	if token == "" || username == "" {
+		fmt.Println("GITHUB_TOKEN or GITHUB_USERNAME not found, update your .env")
 		log.Fatalln(err)
 	}
 
 	client := github.NewClient(nil).WithAuthToken(os.Getenv("GITHUB_TOKEN"))
-	for _, cRepo := range config.Repos {
+	for _, cRepo := range d {
 		WAIT_GROUP.Add(1)
 		cRepo := cRepo
 
+		fmt.Println("Start looking at: ", cRepo.owner, cRepo.name)
+
 		repository := InitRepository(
 			client,
-			cRepo.Owner,
-			cRepo.Repo,
-			config.User,
-			cRepo.Merge,
+			cRepo.owner,
+			cRepo.name,
+			username,
+			cRepo.allowToMerge,
 		)
 
 		go func() {
@@ -66,17 +64,17 @@ func main() {
 				log.Fatalln(err)
 			}
 
-			if !repository.shouldMerge && repository.pullToMerge != 0 {
-				fmt.Println("Done: ", cRepo.Owner, cRepo.Repo)
+			if !repository.shouldMerge && repository.pullToMerge == 0 {
+				fmt.Println("Done: ", cRepo.owner, cRepo.name)
 				return
 			}
 
 			err = repository.HandleMerge()
 			if err != nil {
-				log.Fatalln(err)
+				fmt.Println(err)
 			}
 
-			fmt.Println("Done: ", cRepo.Owner, cRepo.Repo)
+			fmt.Println("Done: ", cRepo.owner, cRepo.name)
 		}()
 	}
 
