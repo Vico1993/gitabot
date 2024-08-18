@@ -6,9 +6,10 @@ on:
       - main
     paths:
       - "**.go"
+      - "**.json"
 
 env:
-  GO_VERSION: 1.20.2
+  GO_VERSION: 1.21
   GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
 jobs:
