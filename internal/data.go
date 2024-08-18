@@ -19,11 +19,6 @@ var d = []data{
 	},
 	{
 		owner:        "Vico1993",
-		name:         "basic-ts-repo",
-		allowToMerge: true,
-	},
-	{
-		owner:        "Vico1993",
 		name:         "ODream",
 		allowToMerge: true,
 	},
