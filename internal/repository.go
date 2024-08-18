@@ -25,18 +25,20 @@ type repository struct {
 	name         string
 	user         string
 	shouldMerge  bool
-	pullsToMerge []int
+	pullToMerge  int
+	pullToRebase []int
 }
 
 // Build the Repository object
-func InitRepository(client *github.Client, owner, name, user string, shouldMerge bool, pullsToMerge []int) *repository {
+func InitRepository(client *github.Client, owner, name, user string, shouldMerge bool) *repository {
 	return &repository{
 		client:       client,
 		owner:        owner,
 		name:         name,
 		user:         user,
 		shouldMerge:  shouldMerge,
-		pullsToMerge: pullsToMerge,
+		pullToMerge:  0,
+		pullToRebase: []int{},
 	}
 }
 
@@ -193,50 +195,42 @@ func (r *repository) handleApproval(pullNumber int) error {
 	// Update stats
 	PR_APPROVED += 1
 
-	if r.shouldMerge {
-		r.pullsToMerge = append(r.pullsToMerge, pullNumber)
+	if !r.shouldMerge {
+		return nil
+	}
+
+	if r.pullToMerge == 0 {
+		r.pullToMerge = pullNumber
+	} else {
+		r.pullToRebase = append(r.pullToRebase, pullNumber)
 	}
 
 	return nil
 }
 
-// Return the list of pulls number that can/should be merge
-func (r *repository) PullsToMerge() []int {
-	return r.pullsToMerge
-}
-
 // Handle logic around merging Pull + rebasing next PR
 func (r *repository) HandleMerge() error {
-	if len(r.pullsToMerge) == 0 {
+	if r.pullToMerge == 0 {
 		return errors.New("No pull request to merge")
 	}
-
-	mergePullNumber := r.pullsToMerge[0]
 
 	_, _, err := r.client.PullRequests.Merge(
 		context.Background(),
 		r.owner,
 		r.name,
-		mergePullNumber,
+		r.pullToMerge,
 		"chore(deps): Update dep from Dependabot",
 		&github.PullRequestOptions{},
 	)
 	if err != nil {
 		PR_MERGED_ERROR += 1
-		fmt.Println("Enable to Merge pull request:", r.owner, r.name, mergePullNumber)
+		fmt.Println("Enable to Merge pull request:", r.owner, r.name, r.pullToMerge)
 		return err
-	}
-
-	// Remove pr merged
-	if len(r.pullsToMerge) == 1 {
-		r.pullsToMerge = []int{}
-	} else {
-		r.pullsToMerge = append(r.pullsToMerge[:0], r.pullsToMerge[1:]...)
 	}
 
 	// Request Rebase
 	var body = "@dependabot rebase"
-	for _, prNumber := range r.pullsToMerge {
+	for _, prNumber := range r.pullToRebase {
 		_, _, err := r.client.Issues.CreateComment(
 			context.Background(),
 			r.owner,
@@ -251,7 +245,7 @@ func (r *repository) HandleMerge() error {
 		)
 
 		if err != nil {
-			fmt.Println("Enable to Merge pull request:", r.owner, r.name, mergePullNumber)
+			fmt.Println("Enable to Merge pull request:", r.owner, r.name, prNumber)
 			return err
 		}
 	}

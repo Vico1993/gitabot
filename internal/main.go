@@ -56,7 +56,6 @@ func main() {
 			cRepo.Repo,
 			config.User,
 			cRepo.Merge,
-			cRepo.PullsToMerge,
 		)
 
 		go func() {
@@ -67,7 +66,7 @@ func main() {
 				log.Fatalln(err)
 			}
 
-			if !repository.shouldMerge && len(repository.PullsToMerge()) == 0 {
+			if !repository.shouldMerge && repository.pullToMerge != 0 {
 				fmt.Println("Done: ", cRepo.Owner, cRepo.Repo)
 				return
 			}
