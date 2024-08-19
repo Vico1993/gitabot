@@ -143,7 +143,7 @@ func (r *repository) isBranchChecksSuccessful(branchName string) (bool, error) {
 	}
 
 	for _, run := range checks.CheckRuns {
-		if run.GetConclusion() != "success" {
+		if run.GetConclusion() != "success" && run.GetConclusion() != "skipped" {
 			return false, nil
 		}
 	}
