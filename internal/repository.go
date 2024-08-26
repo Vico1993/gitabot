@@ -90,7 +90,7 @@ func (r *repository) HandleDependabotPulls() error {
 		// To be mergeable, all checks need to be good
 		// And no conflict need to be detected
 		if isMergeable && pull.GetMergeable() {
-			r.handleApproval(pull.GetNumber())
+			_ = r.handleApproval(pull.GetNumber())
 		} else {
 			PR_NEEDED_ATTENTION = append(
 				PR_NEEDED_ATTENTION,
@@ -226,6 +226,8 @@ func (r *repository) HandleMerge() error {
 		PR_MERGED_ERROR += 1
 		fmt.Println("Enable to Merge pull request:", r.owner, r.name, r.pullToMerge)
 		return err
+	} else {
+		PR_MERGED += 1
 	}
 
 	// Request Rebase

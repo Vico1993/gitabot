@@ -64,13 +64,14 @@ func main() {
 				log.Fatalln(err)
 			}
 
-			if !repository.shouldMerge && repository.pullToMerge == 0 {
+			if !repository.shouldMerge || repository.pullToMerge == 0 {
 				fmt.Println("Done: ", cRepo.owner, cRepo.name)
 				return
 			}
 
 			err = repository.HandleMerge()
 			if err != nil {
+				fmt.Println("Error Merging: ", cRepo.owner, cRepo.name)
 				fmt.Println(err)
 			}
 
