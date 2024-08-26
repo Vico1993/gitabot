@@ -71,7 +71,7 @@ func main() {
 
 			err = repository.HandleMerge()
 			if err != nil {
-				fmt.Println("Error Merging:", cRepo.owner, cRepo.name)
+				fmt.Println("Error Merging: ", cRepo.owner, cRepo.name)
 				fmt.Println(err)
 			}
 

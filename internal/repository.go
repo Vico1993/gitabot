@@ -90,7 +90,7 @@ func (r *repository) HandleDependabotPulls() error {
 		// To be mergeable, all checks need to be good
 		// And no conflict need to be detected
 		if isMergeable && pull.GetMergeable() {
-			r.handleApproval(pull.GetNumber())
+			_ = r.handleApproval(pull.GetNumber())
 		} else {
 			PR_NEEDED_ATTENTION = append(
 				PR_NEEDED_ATTENTION,
