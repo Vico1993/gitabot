@@ -34,6 +34,11 @@ var d = []data{
 	},
 	{
 		owner:        "Vico1993",
+		name:         "gitastats",
+		allowToMerge: true,
+	},
+	{
+		owner:        "Vico1993",
 		name:         "pulse",
 		allowToMerge: true,
 	},

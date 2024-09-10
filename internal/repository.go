@@ -69,7 +69,7 @@ func (r *repository) HandleDependabotPulls() error {
 
 		isApprovable, err := r.isPullApprovable(
 			pull.GetNumber(),
-			pull.Base.GetSHA(),
+			pull.Head.GetSHA(),
 		)
 		if err != nil {
 			fmt.Println("Enable to fetch pull request reviews")
