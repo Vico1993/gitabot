@@ -52,4 +52,9 @@ var d = []data{
 		name:         "basic-go-repo",
 		allowToMerge: true,
 	},
+	{
+		owner:        "Vico1993",
+		name:         "blizzobot",
+		allowToMerge: true,
+	},
 }
