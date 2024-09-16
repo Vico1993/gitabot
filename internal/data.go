@@ -57,4 +57,9 @@ var d = []data{
 		name:         "blizzobot",
 		allowToMerge: true,
 	},
+	{
+		owner:        "Vico1993",
+		name:         "toolbox",
+		allowToMerge: true,
+	},
 }
