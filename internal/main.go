@@ -32,7 +32,7 @@ func main() {
 		log.Fatalln(err)
 	}
 
-	_ = service.Telegram.PostMessage("🤖 🚧 [Gitabot]: Starting...")
+	fmt.Println("🤖 🚧: Starting...")
 
 	token := os.Getenv("GITHUB_TOKEN")
 	username := os.Getenv("GITHUB_USERNAME")
@@ -82,13 +82,13 @@ func main() {
 	WAIT_GROUP.Wait()
 
 	if len(PR_NEEDED_ATTENTION) > 0 {
-		_ = service.Telegram.PostMessage("🤖 🟥 [Gitabot]: Number of PR that need attention " + strconv.Itoa(len(PR_NEEDED_ATTENTION)))
+		logging("🟥 Number of PR that need attention " + strconv.Itoa(len(PR_NEEDED_ATTENTION)))
 
 		fmt.Println("Few pull requests need your attention")
 		fmt.Println(utils.ToJson(PR_NEEDED_ATTENTION))
 	}
 
-	_ = service.Telegram.PostMessage("🤖 🟩 [Gitabot]: Number of PR approved " + strconv.Itoa(PR_APPROVED) + " \n\n🤖 🟪 [Gitabot]: Number of PR merged " + strconv.Itoa(PR_MERGED) + "\n\n🤖 ✅ [Gitabot]: Done")
+	logging("🟩 Number of PR approved " + strconv.Itoa(PR_APPROVED) + " \n\n 🟪 Number of PR merged " + strconv.Itoa(PR_MERGED))
 
 	if PR_MERGED > 0 {
 		fmt.Println("Pull Requests merged: ", PR_MERGED)
@@ -96,4 +96,14 @@ func main() {
 	}
 
 	fmt.Println("Done!")
+}
+
+// Log information in telegram
+// but also in terminal
+func logging(txt string) {
+	fmt.Println("{🤖} " + txt)
+	err := service.Telegram.PostMessage("🤖 {Gitabot} : \n" + txt)
+	if err != nil {
+		fmt.Println("❌ - Couldn't post in telegram: " + err.Error())
+	}
 }
