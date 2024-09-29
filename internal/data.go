@@ -62,4 +62,9 @@ var d = []data{
 		name:         "toolbox",
 		allowToMerge: true,
 	},
+	{
+		owner:        "Vico1993",
+		name:         "centri-bot",
+		allowToMerge: true,
+	},
 }
