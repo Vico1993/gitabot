@@ -89,7 +89,7 @@ func main() {
 	}
 
 	if len(PR_NEEDED_ATTENTION) > 0 {
-		txt += "🟥 Number of PR that need attention " + strconv.Itoa(len(PR_NEEDED_ATTENTION))
+		txt += "\n🟥 Number of PR that need attention " + strconv.Itoa(len(PR_NEEDED_ATTENTION))
 		fmt.Println("Few pull requests need your attention")
 		fmt.Println(utils.ToJson(PR_NEEDED_ATTENTION))
 	}
