@@ -54,6 +54,11 @@ var d = []data{
 	},
 	{
 		owner:        "Vico1993",
+		name:         "basic-react-repo",
+		allowToMerge: true,
+	},
+	{
+		owner:        "Vico1993",
 		name:         "blizzobot",
 		allowToMerge: true,
 	},
