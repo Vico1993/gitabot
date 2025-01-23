@@ -1,8 +1,10 @@
 # Gitabot
 
-This script is designed to parse a list of GitHub repositories and identify open pull requests created by Dependabot. Its primary function is to automatically approve these PRs if all associated checks have passed. For certain repositories, the script can even merge these Dependabot pull requests autonomously.
+This script is designed to parse a list of GitHub issues and identify open pull requests created by Dependabot. Its primary function is to automatically approve these PRs if all associated checks have passed. If you are the owner of the repository, the script will merge them for you.
 
-While automating the approval and merging of PRs might seem risky, I'm a careful developer who trusts my CI pipeline. If the CI passes all checks, there's no reason for me to manually handle these PRs when a script can do it efficiently for me.
+To merge pull requests, you need to be the owner of the repository and have AUTO_MERGE=1 set in your environment file.
+
+While automating the approval and merging of PRs might seem risky, I'm a careful developer who trusts my CI pipeline. If the CI passes all checks, there's no reason for me to manually handle these PRs when a script can efficiently do it for me.
 
 ## Table of Contents
 
@@ -13,11 +15,7 @@ While automating the approval and merging of PRs might seem risky, I'm a careful
 
 Follow the steps below to set up and run the Automated Dependabot PR Approver:
 
-### 1. Update `data.go`
-
-- Open the `data.go` file and add your list of GitHub repositories. This file contains the repositories that the script will parse to identify Dependabot pull requests.
-
-### 2. Configure Environment Variables
+### 1. Configure Environment Variables
 
 - Create or update a `.env` file in the project root with the following variables:
 
@@ -31,7 +29,7 @@ Follow the steps below to set up and run the Automated Dependabot PR Approver:
     - `TELEGRAM_CHAT_ID`: The chat ID where notifications will be sent.
     - `TELEGRAM_BOT_TOKEN`: The token for your Telegram bot.
 
-### 3. Install Dependencies
+### 2. Install Dependencies
 
 - Run the following command to ensure all dependencies are installed:
 
@@ -39,7 +37,7 @@ Follow the steps below to set up and run the Automated Dependabot PR Approver:
   make ensure_deps
 ```
 
-### 4. Build and Run the Script
+### 3. Build and Run the Script
 
 - Build the project and run the bot with the following commands:
 

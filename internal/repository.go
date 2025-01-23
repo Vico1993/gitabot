@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"os"
 	"strings"
 
 	"github.com/google/go-github/v63/github"
@@ -90,7 +91,8 @@ func (c *Repository) HandlePulls() error {
 			// Update stats
 			PR_APPROVED += 1
 
-			if strings.EqualFold(c.owner, c.user) {
+			// If not owner OR AUTO_MERGE == false
+			if !strings.EqualFold(c.owner, c.user) || os.Getenv("AUTO_MERGE") != "1" {
 				return nil
 			}
 
@@ -204,8 +206,6 @@ func (c *Repository) HandleMerge() error {
 			fmt.Println("Enable to Merge pull request:", c.owner, c.name, prNumber)
 			return err
 		}
-
-		fmt.Println("✅ - PR Commented ", body, c.owner, c.name, prNumber)
 	}
 
 	return nil
