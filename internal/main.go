@@ -5,6 +5,7 @@ import (
 	"log"
 	"os"
 	"strconv"
+	"strings"
 	"sync"
 
 	service "github.com/Vico1993/gitabot/internal/services"
@@ -13,12 +14,19 @@ import (
 	"github.com/subosito/gotenv"
 )
 
+const PER_PAGE = 100
+
 var (
 	WAIT_GROUP          sync.WaitGroup
 	PR_APPROVED         = 0
 	PR_MERGED           = 0
 	PR_NEEDED_ATTENTION = []string{}
 	PR_MERGED_ERROR     = 0
+	FILTER_LATEST       = "latest"
+	DEPENDABOT_LOGIN    = "dependabot[bot]"
+	DEPENDABOT_TYPE     = "Bot"
+	APPROVE             = "APPROVE"
+	APPROVED            = "APPROVED"
 )
 
 func main() {
@@ -32,7 +40,7 @@ func main() {
 		log.Fatalln(err)
 	}
 
-	fmt.Println("🤖 🚧: Starting...")
+	fmt.Println("🚧: Starting...")
 
 	token := os.Getenv("GITHUB_TOKEN")
 	username := os.Getenv("GITHUB_USERNAME")
@@ -42,40 +50,64 @@ func main() {
 	}
 
 	client := github.NewClient(nil).WithAuthToken(os.Getenv("GITHUB_TOKEN"))
-	for _, cRepo := range d {
+
+	fmt.Println("🔎: Fetching for issues...")
+	issues, err := findDependabotIssues(client, username)
+	if err != nil {
+		log.Fatalln(err)
+	}
+	fmt.Println("✅: Done")
+
+	cows := map[string]*Repository{}
+	for _, issue := range issues {
+		// Extract Repository information
+		// url will look like: "https://github.com/<OWNER>/<repository name>/pull/<number>
+		url := issue.GetHTMLURL()
+
+		str := strings.Replace(url, "https://github.com/", "", 1) // <OWNER>/<repository name>/pull/<number>
+		tmp := strings.Split(str, "/")
+
+		number, _ := strconv.Atoi(tmp[3])
+		// Check if the key exists
+		repo, exists := cows[tmp[0]+"/"+tmp[1]]
+		if exists {
+
+			repo.AddPulls(number)
+		} else {
+			cows[tmp[0]+"/"+tmp[1]] = InitRepository(client, tmp[0], tmp[1], username, []int{number})
+		}
+	}
+
+	fmt.Println("🔎: Found: ", len(issues))
+	fmt.Println("🔎: Cross : ", len(cows), " repositories")
+
+	// TODO: Make a Logging function in Repository struct
+	for _, repository := range cows {
 		WAIT_GROUP.Add(1)
-		cRepo := cRepo
+		repository := repository
 
-		fmt.Println("Start looking at: ", cRepo.owner, cRepo.name)
-
-		repository := InitRepository(
-			client,
-			cRepo.owner,
-			cRepo.name,
-			username,
-			cRepo.allowToMerge,
-		)
+		fmt.Println("👀 Start looking at: ", repository.owner, repository.name)
 
 		go func() {
 			defer WAIT_GROUP.Done()
 
-			err := repository.HandleDependabotPulls()
+			err := repository.HandlePulls()
 			if err != nil {
 				log.Fatalln(err)
 			}
 
-			if !repository.shouldMerge || repository.pullToMerge == 0 {
-				fmt.Println("Done: ", cRepo.owner, cRepo.name)
+			if repository.pullToMerge == 0 {
+				fmt.Println("✅: Done ", repository.owner, repository.name)
 				return
 			}
 
 			err = repository.HandleMerge()
 			if err != nil {
-				fmt.Println("Error Merging: ", cRepo.owner, cRepo.name)
+				fmt.Println("🔴: Error Merging ", repository.owner, repository.name)
 				fmt.Println(err)
 			}
 
-			fmt.Println("Done: ", cRepo.owner, cRepo.name)
+			fmt.Println("✅: Done ", repository.owner, repository.name)
 		}()
 	}
 
@@ -90,13 +122,13 @@ func main() {
 
 	if len(PR_NEEDED_ATTENTION) > 0 {
 		txt += "\n🟥 Number of PR that need attention " + strconv.Itoa(len(PR_NEEDED_ATTENTION))
-		fmt.Println("Few pull requests need your attention")
+		fmt.Println("👀 Few pull requests need your attention")
 		fmt.Println(utils.ToJson(PR_NEEDED_ATTENTION))
 	}
 
 	logging(txt)
 
-	fmt.Println("Done!")
+	fmt.Println("✅: Done")
 }
 
 // Log information in telegram

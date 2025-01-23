@@ -4,70 +4,52 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 
-	"github.com/Vico1993/gitabot/internal/utils"
 	"github.com/google/go-github/v63/github"
 )
 
-const PER_PAGE = 100
-
-var (
-	FILTER_LATEST    = "latest"
-	DEPENDABOT_LOGIN = "dependabot[bot]"
-	DEPENDABOT_TYPE  = "Bot"
-	APPROVE          = "APPROVE"
-	APPROVED         = "APPROVED"
-)
-
-type repository struct {
+type Repository struct {
 	client       *github.Client
 	owner        string
 	name         string
 	user         string
-	shouldMerge  bool
+	Pulls        []int
 	pullToMerge  int
 	pullToRebase []int
 }
 
-// Build the Repository object
-func InitRepository(client *github.Client, owner, name, user string, shouldMerge bool) *repository {
-	return &repository{
+func InitRepository(client *github.Client, owner, name, user string, pullNumbers []int) *Repository {
+	return &Repository{
 		client:       client,
 		owner:        owner,
 		name:         name,
 		user:         user,
-		shouldMerge:  shouldMerge,
+		Pulls:        pullNumbers,
 		pullToMerge:  0,
 		pullToRebase: []int{},
 	}
 }
 
-// Function that will fetch and parsed each dependabot pulls
-// Will approved if every check are succesfull
-func (r *repository) HandleDependabotPulls() error {
-	pullsList, err := r.fetchPullRequests()
-	if err != nil {
-		return err
-	}
+// Add a pull to the list
+func (c *Repository) AddPulls(number int) {
+	c.Pulls = append(c.Pulls, number)
+}
 
-	for _, p := range pullsList {
-		// Filter none dependabot PR
-		if p.User.GetType() != DEPENDABOT_TYPE || p.User.GetLogin() != DEPENDABOT_LOGIN || p.GetDraft() {
-			continue
-		}
-
-		pull, _, err := r.client.PullRequests.Get(
+func (c *Repository) HandlePulls() error {
+	for _, pullNumber := range c.Pulls {
+		pull, _, err := c.client.PullRequests.Get(
 			context.Background(),
-			r.owner,
-			r.name,
-			p.GetNumber(),
+			c.owner,
+			c.name,
+			pullNumber,
 		)
 		if err != nil {
 			fmt.Println("Enable to fetch pull request")
 			return err
 		}
 
-		isApprovable, err := r.isPullApprovable(
+		isApprovable, err := c.isPullApprovable(
 			pull.GetNumber(),
 			pull.Head.GetSHA(),
 		)
@@ -79,8 +61,8 @@ func (r *repository) HandleDependabotPulls() error {
 			continue
 		}
 
-		isMergeable, err := r.isBranchChecksSuccessful(
-			p.Head.GetRef(),
+		isMergeable, err := c.isBranchChecksSuccessful(
+			pull.Head.GetRef(),
 		)
 		if err != nil {
 			fmt.Println("Enable to fetch branch checks")
@@ -90,11 +72,36 @@ func (r *repository) HandleDependabotPulls() error {
 		// To be mergeable, all checks need to be good
 		// And no conflict need to be detected
 		if isMergeable && pull.GetMergeable() {
-			_ = r.handleApproval(pull.GetNumber())
+			_, _, err := c.client.PullRequests.CreateReview(
+				context.TODO(),
+				c.owner,
+				c.name,
+				pullNumber,
+				&github.PullRequestReviewRequest{
+					Event: &APPROVE,
+				},
+			)
+			if err != nil {
+				fmt.Println("Enable to Approve pull request")
+				return err
+			}
+
+			// Update stats
+			PR_APPROVED += 1
+
+			if strings.ToLower(c.owner) != strings.ToLower(c.user) {
+				return nil
+			}
+
+			if c.pullToMerge == 0 {
+				c.pullToMerge = pullNumber
+			} else {
+				c.pullToRebase = append(c.pullToRebase, pullNumber)
+			}
 		} else {
 			PR_NEEDED_ATTENTION = append(
 				PR_NEEDED_ATTENTION,
-				p.GetHTMLURL(),
+				pull.GetHTMLURL(),
 			)
 		}
 	}
@@ -102,37 +109,12 @@ func (r *repository) HandleDependabotPulls() error {
 	return nil
 }
 
-// Fetch all github pull request for a repository
-func (r *repository) fetchPullRequests() ([]*github.PullRequest, error) {
-	pulls, err := utils.FetchPages(
-		func(pageNumber int) ([]*github.PullRequest, *github.Response, error) {
-			return r.client.PullRequests.List(
-				context.Background(),
-				r.owner,
-				r.name,
-				&github.PullRequestListOptions{
-					State: "open",
-					ListOptions: github.ListOptions{
-						PerPage: PER_PAGE,
-						Page:    pageNumber,
-					},
-				})
-		},
-	)
-	if err != nil {
-		fmt.Println("Impossible to retrieve Pull Requests")
-		return nil, err
-	}
-
-	return pulls, nil
-}
-
 // Parse checks to be sure pull request is mergeable
-func (r *repository) isBranchChecksSuccessful(branchName string) (bool, error) {
-	checks, _, err := r.client.Checks.ListCheckRunsForRef(
+func (c *Repository) isBranchChecksSuccessful(branchName string) (bool, error) {
+	checks, _, err := c.client.Checks.ListCheckRunsForRef(
 		context.Background(),
-		r.owner,
-		r.name,
+		c.owner,
+		c.name,
 		branchName,
 		&github.ListCheckRunsOptions{
 			Filter: &FILTER_LATEST,
@@ -152,11 +134,11 @@ func (r *repository) isBranchChecksSuccessful(branchName string) (bool, error) {
 }
 
 // Check if we can approve the PR
-func (r *repository) isPullApprovable(pullNumber int, commit string) (bool, error) {
-	reviews, _, err := r.client.PullRequests.ListReviews(
+func (c *Repository) isPullApprovable(pullNumber int, commit string) (bool, error) {
+	reviews, _, err := c.client.PullRequests.ListReviews(
 		context.Background(),
-		r.owner,
-		r.name,
+		c.owner,
+		c.name,
 		pullNumber,
 		&github.ListOptions{
 			PerPage: PER_PAGE,
@@ -168,7 +150,7 @@ func (r *repository) isPullApprovable(pullNumber int, commit string) (bool, erro
 
 	for _, review := range reviews {
 		// if user already approved the PR for this commit
-		if review.GetCommitID() == commit && review.GetState() == APPROVED && review.User.GetLogin() == r.user {
+		if review.GetCommitID() == commit && review.GetState() == APPROVED && review.User.GetLogin() == c.user {
 			return false, nil
 		}
 	}
@@ -176,55 +158,23 @@ func (r *repository) isPullApprovable(pullNumber int, commit string) (bool, erro
 	return true, nil
 }
 
-// Will process the approval
-func (r *repository) handleApproval(pullNumber int) error {
-	_, _, err := r.client.PullRequests.CreateReview(
-		context.TODO(),
-		r.owner,
-		r.name,
-		pullNumber,
-		&github.PullRequestReviewRequest{
-			Event: &APPROVE,
-		},
-	)
-	if err != nil {
-		fmt.Println("Enable to Approve pull request")
-		return err
-	}
-
-	// Update stats
-	PR_APPROVED += 1
-
-	if !r.shouldMerge {
-		return nil
-	}
-
-	if r.pullToMerge == 0 {
-		r.pullToMerge = pullNumber
-	} else {
-		r.pullToRebase = append(r.pullToRebase, pullNumber)
-	}
-
-	return nil
-}
-
 // Handle logic around merging Pull + rebasing next PR
-func (r *repository) HandleMerge() error {
-	if r.pullToMerge == 0 {
+func (c *Repository) HandleMerge() error {
+	if c.pullToMerge == 0 {
 		return errors.New("No pull request to merge")
 	}
 
-	_, _, err := r.client.PullRequests.Merge(
+	_, _, err := c.client.PullRequests.Merge(
 		context.Background(),
-		r.owner,
-		r.name,
-		r.pullToMerge,
+		c.owner,
+		c.name,
+		c.pullToMerge,
 		"chore(deps): Update dep from Dependabot",
 		&github.PullRequestOptions{},
 	)
 	if err != nil {
 		PR_MERGED_ERROR += 1
-		fmt.Println("Enable to Merge pull request:", r.owner, r.name, r.pullToMerge)
+		fmt.Println("Enable to Merge pull request:", c.owner, c.name, c.pullToMerge)
 		return err
 	} else {
 		PR_MERGED += 1
@@ -232,22 +182,22 @@ func (r *repository) HandleMerge() error {
 
 	// Request Rebase
 	var body = "@dependabot rebase"
-	for _, prNumber := range r.pullToRebase {
-		_, _, err := r.client.Issues.CreateComment(
+	for _, prNumber := range c.pullToRebase {
+		_, _, err := c.client.Issues.CreateComment(
 			context.Background(),
-			r.owner,
-			r.name,
+			c.owner,
+			c.name,
 			prNumber,
 			&github.IssueComment{
 				Body: &body,
 				User: &github.User{
-					Login: &r.user,
+					Login: &c.user,
 				},
 			},
 		)
 
 		if err != nil {
-			fmt.Println("Enable to Merge pull request:", r.owner, r.name, prNumber)
+			fmt.Println("Enable to Merge pull request:", c.owner, c.name, prNumber)
 			return err
 		}
 	}
