@@ -19,9 +19,11 @@ const PER_PAGE = 100
 var (
 	WAIT_GROUP          sync.WaitGroup
 	PR_APPROVED         = 0
+	PR_ALREADY_APPROVED = 0
 	PR_MERGED           = 0
 	PR_NEEDED_ATTENTION = []string{}
 	PR_MERGED_ERROR     = 0
+	ERRORS              = []string{}
 	FILTER_LATEST       = "latest"
 	DEPENDABOT_LOGIN    = "dependabot[bot]"
 	DEPENDABOT_TYPE     = "Bot"
@@ -81,62 +83,74 @@ func main() {
 	fmt.Println("🔎: Found: ", len(issues))
 	fmt.Println("🔎: Cross : ", len(cows), " repositories")
 
-	// TODO: Make a Logging function in Repository struct
 	for _, repository := range cows {
 		WAIT_GROUP.Add(1)
 		repository := repository
 
-		fmt.Println("👀 Start looking at: ", repository.owner, repository.name)
+		repository.Logging("👀 Start looking at: ")
 
 		go func() {
 			defer WAIT_GROUP.Done()
 
 			err := repository.HandlePulls()
 			if err != nil {
-				log.Fatalln(err)
+				ERRORS = append(ERRORS, err.Error())
+				repository.Logging("🔴: Error handling pulls: " + err.Error())
+				return
 			}
 
 			if repository.pullToMerge == 0 {
-				fmt.Println("✅: Done ", repository.owner, repository.name)
+				repository.Logging("✅: Done ")
 				return
 			}
 
 			err = repository.HandleMerge()
 			if err != nil {
-				fmt.Println("🔴: Error Merging ", repository.owner, repository.name)
+				repository.Logging("🔴: Error Merging ")
 				fmt.Println(err)
+				return
 			}
 
-			fmt.Println("✅: Done ", repository.owner, repository.name)
+			repository.Logging("✅: Done ")
 		}()
 	}
 
 	WAIT_GROUP.Wait()
 
-	txt := "🟩 Number of PR approved " + strconv.Itoa(PR_APPROVED) + " \n🟪 Number of PR merged " + strconv.Itoa(PR_MERGED)
+	txt := "🟩 Number of PR approved " + strconv.Itoa(PR_APPROVED) + " \n🟩 Number of PR merged " + strconv.Itoa(PR_ALREADY_APPROVED) + " \n🟪 Number of PR merged " + strconv.Itoa(PR_MERGED) + "\n🟥 Number of PR that need attention " + strconv.Itoa(len(PR_NEEDED_ATTENTION))
 
-	if PR_MERGED > 0 {
-		fmt.Println("Pull Requests merged: ", PR_MERGED)
-		fmt.Println("Pull Requests merged - Error: ", PR_MERGED_ERROR)
-	}
-
+	fmt.Println(txt)
 	if len(PR_NEEDED_ATTENTION) > 0 {
-		txt += "\n🟥 Number of PR that need attention " + strconv.Itoa(len(PR_NEEDED_ATTENTION))
-		fmt.Println("👀 Few pull requests need your attention")
+		fmt.Println("⛑️👀 Few pull requests need your attention")
 		fmt.Println(utils.ToJson(PR_NEEDED_ATTENTION))
 	}
 
-	logging(txt)
-
-	fmt.Println("✅: Done")
-}
-
-// Log information in telegram
-// but also in terminal
-func logging(txt string) {
-	fmt.Println("{🤖} " + txt)
-	err := service.Telegram.PostMessage("🤖 {Gitabot} : \n\n" + txt)
+	err = service.Telegram.PostMessage(txt)
 	if err != nil {
-		fmt.Println("❌ - Couldn't post in telegram: " + err.Error())
+		fmt.Println("🔴: - Couldn't post in telegram: " + err.Error())
+		return
+	}
+
+	if len(ERRORS) > 0 {
+		fmt.Println("🔴👀 Repositories need your intention")
+		fmt.Println(utils.ToJson(ERRORS))
+
+		err = service.Telegram.PostMessage("🔴🔥 Repositories need your intention #" + strconv.Itoa(len(ERRORS)))
+		if err != nil {
+			fmt.Println("🔴: - Couldn't post in telegram: " + err.Error())
+			return
+		}
+	}
+
+	if PR_MERGED_ERROR == 0 {
+		return
+	}
+
+	fmt.Println("🔴🔥 Pull Requests merged - Error: ", PR_MERGED_ERROR)
+	err = service.Telegram.PostMessage("🔴🔥 Pull Requests merged - Error: " + strconv.Itoa(PR_MERGED_ERROR))
+
+	if err != nil {
+		fmt.Println("🔴: - Couldn't post in telegram: " + err.Error())
+		return
 	}
 }

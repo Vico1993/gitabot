@@ -45,7 +45,7 @@ func (c *Repository) HandlePulls() error {
 			pullNumber,
 		)
 		if err != nil {
-			fmt.Println("Enable to fetch pull request")
+			fmt.Println("🔴: Enable to fetch pull request")
 			return err
 		}
 
@@ -54,10 +54,11 @@ func (c *Repository) HandlePulls() error {
 			pull.Head.GetSHA(),
 		)
 		if err != nil {
-			fmt.Println("Enable to fetch pull request reviews")
+			fmt.Println("🔴: Enable to fetch pull request reviews")
 			return err
 		}
 		if !isApprovable {
+			PR_ALREADY_APPROVED += 1
 			continue
 		}
 
@@ -65,7 +66,7 @@ func (c *Repository) HandlePulls() error {
 			pull.Head.GetRef(),
 		)
 		if err != nil {
-			fmt.Println("Enable to fetch branch checks")
+			fmt.Println("🔴: Enable to fetch branch checks")
 			return err
 		}
 
@@ -89,7 +90,7 @@ func (c *Repository) HandlePulls() error {
 			// Update stats
 			PR_APPROVED += 1
 
-			if strings.ToLower(c.owner) != strings.ToLower(c.user) {
+			if strings.EqualFold(c.owner, c.user) {
 				return nil
 			}
 
@@ -151,6 +152,10 @@ func (c *Repository) isPullApprovable(pullNumber int, commit string) (bool, erro
 	for _, review := range reviews {
 		// if user already approved the PR for this commit
 		if review.GetCommitID() == commit && review.GetState() == APPROVED && review.User.GetLogin() == c.user {
+			fmt.Println("✅: user already approved the PR for this commit", c.owner,
+				c.name,
+				pullNumber,
+			)
 			return false, nil
 		}
 	}
@@ -195,12 +200,18 @@ func (c *Repository) HandleMerge() error {
 				},
 			},
 		)
-
 		if err != nil {
 			fmt.Println("Enable to Merge pull request:", c.owner, c.name, prNumber)
 			return err
 		}
+
+		fmt.Println("✅ - PR Commented ", body, c.owner, c.name, prNumber)
 	}
 
 	return nil
+}
+
+// Log the information in the terminal
+func (c *Repository) Logging(txt string) {
+	fmt.Println(txt, c.owner, c.name)
 }
