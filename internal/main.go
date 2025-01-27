@@ -18,6 +18,7 @@ const PER_PAGE = 100
 
 var (
 	WAIT_GROUP          sync.WaitGroup
+	mutex               sync.Mutex
 	PR_APPROVED         = 0
 	PR_ALREADY_APPROVED = 0
 	PR_MERGED           = 0
@@ -94,7 +95,9 @@ func main() {
 
 			err := repository.HandlePulls()
 			if err != nil {
+				mutex.Lock()
 				ERRORS = append(ERRORS, err.Error())
+				mutex.Unlock()
 				repository.Logging("🔴: Error handling pulls: " + err.Error())
 				return
 			}
@@ -106,8 +109,10 @@ func main() {
 
 			err = repository.HandleMerge()
 			if err != nil {
+				mutex.Lock()
+				ERRORS = append(ERRORS, err.Error())
+				mutex.Unlock()
 				repository.Logging("🔴: Error Merging ")
-				fmt.Println(err)
 				return
 			}
 
@@ -117,7 +122,7 @@ func main() {
 
 	WAIT_GROUP.Wait()
 
-	txt := "🟩 Number of PR approved " + strconv.Itoa(PR_APPROVED) + " \n🟩 Number of PR merged " + strconv.Itoa(PR_ALREADY_APPROVED) + " \n🟪 Number of PR merged " + strconv.Itoa(PR_MERGED) + "\n🟥 Number of PR that need attention " + strconv.Itoa(len(PR_NEEDED_ATTENTION))
+	txt := "🟩 Number of PR approved " + strconv.Itoa(PR_APPROVED) + " \n🟩 Number of PR merged " + strconv.Itoa(PR_MERGED) + " \n🟪 Number of PR merged " + strconv.Itoa(PR_MERGED) + "\n🟥 Number of PR that need attention " + strconv.Itoa(len(PR_NEEDED_ATTENTION))
 
 	fmt.Println(txt)
 	if len(PR_NEEDED_ATTENTION) > 0 {

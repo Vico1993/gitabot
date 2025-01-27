@@ -13,6 +13,7 @@ func findDependabotIssues(client *github.Client, name string) ([]*github.Issue, 
 	query := "is:open is:pr author:" + DEPENDABOT_LOGIN
 
 	issues := []*github.Issue{}
+
 	// Finding dependabots pulls - Repo owner
 	orgIssues, err := utils.FetchPages(
 		func(pageNumber int) ([]*github.Issue, *github.Response, error) {
