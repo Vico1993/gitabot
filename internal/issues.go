@@ -10,7 +10,7 @@ import (
 
 // Find all dependabot Pull requests that I can have access
 func findDependabotIssues(client *github.Client, name string) ([]*github.Issue, error) {
-	query := "is:open is:pr author:" + DEPENDABOT_LOGIN
+	query := "is:open is:pr archived:false author:" + DEPENDABOT_LOGIN
 
 	issues := []*github.Issue{}
 
