@@ -26,7 +26,7 @@ jobs:
           go-version: ${{ env.GO_VERSION }}
 
       - name: Checkout code
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
 
       - name: Verify Deps
         run: go mod verify
@@ -59,7 +59,7 @@ jobs:
           go-version: ${{ env.GO_VERSION }}
 
       - name: Checkout code
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
         with:
           persist-credentials: false
           fetch-depth: 0
@@ -78,7 +78,7 @@ jobs:
     needs:
       - build
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
 
       - name: Get Manifest version
         id: manifest-version
